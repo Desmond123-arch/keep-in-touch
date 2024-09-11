@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components{
+  .center{
+    @apply absolute translate-x-[-50%] translate-y-[-50%] left-1/2 top-1/2
+  }
+   
+}
