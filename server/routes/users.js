@@ -6,7 +6,7 @@ const Usersrouter = express.Router();
 
 Usersrouter.post('/auth/create', userController.addUser);
 Usersrouter.post('/auth/login', userController.loginUser);
+Usersrouter.get('/search', userController.searchUsers);
 Usersrouter.get('/:userId', authenticateToken, userController.UserDetails);
 Usersrouter.get('/my_chats/:userId',authenticateToken ,userController.chatParticipants);
-Usersrouter.get('/search', userController.searchUsers)
 export default Usersrouter;

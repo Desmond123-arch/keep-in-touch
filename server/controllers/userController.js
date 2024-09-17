@@ -44,7 +44,7 @@ const loginUser = async (req, res) => {
     };
     try {
         // Find user by email
-        const user = await dbClient.User.findOne({ email: req.body.email }).select('+password'); 
+        const user = await dbClient.User.findOne({ email: req.body.email }).select('+password');
         if (user.password === loginDetail.password) {
             const token = generateToken(user);
             res.status(200).send({ user, token});
@@ -77,7 +77,8 @@ const chatParticipants = async (req, res) => {
 };
 
 const searchUsers = async (req, res) => {
-    const searchTerm = req.query.q; // e.g., 'John'
+    const searchTerm = req.query.q; 
+    console.log('search was called')
     
     try {
         const users = await dbClient.User.find({
