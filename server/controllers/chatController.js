@@ -65,5 +65,29 @@ const getConversation = async (req, res) => {
         res.status(500).send({ error: 'Failed to get conversation' });
     }
 };
+const startConversation = async (req, res) => {
+    const { senderId, receiverId } = req.body;
 
-export default { sendMessage, getConversation };
+    try {
+        const sender = new mongoose.Types.ObjectId(senderId);
+        const receiver = new mongoose.Types.ObjectId(receiverId);
+
+        let conversation = await dbClient.Conversation.findOne({
+            participants: { $all: [sender, receiver] }
+        });
+
+        if (!conversation) {
+            const newConversation = new dbClient.Conversation({
+                participants: [sender, receiver],
+            });
+            conversation = await newConversation.save();
+        }
+
+        res.status(201).send(conversation);
+    } catch (error) {
+        console.log('Error starting conversation:', error);
+        res.status(500).send({ error: 'Failed to start conversation' });
+    }
+};
+
+export default { sendMessage, getConversation, startConversation };

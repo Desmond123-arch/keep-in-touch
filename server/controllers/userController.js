@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import dbClient from "../utils/db.js";
 import crypto from 'crypto';
+import { generateToken, verifyToken } from "../utils/jwtHelpers.js";
 
 const sha1 = crypto.createHash('sha1');
 
@@ -39,34 +40,30 @@ const addUser = async (req, res) => {
 const loginUser = async (req, res) => {
     const loginDetail = {
         email: req.body.email,
-        password: req.body.password,
-    }
-    console.log(loginDetail)
+        password: hashPassword(req.body.password),
+    };
     try {
-        const user = await dbClient.User.find({ 'email': req.body.email });
-        console.log(user);
-        if (user.length === 1) {
-            const usersMessages = await dbClient.Message.find({ sender: req.body.email });
-            console.log(user);
-            console.log(usersMessages);
-            res.status(200);
+        // Find user by email
+        const user = await dbClient.User.findOne({ email: req.body.email }).select('+password'); 
+        if (user.password === loginDetail.password) {
+            const token = generateToken(user);
+            res.status(200).send({ user, token});
+        } else {
+            res.status(404).send({ error: "User not found" });
         }
-    }
-    catch (err) {
+    } catch (err) {
         console.log(err);
+        res.status(500).send({ error: "Login failed" });
     }
-}
+};
+
 const chatParticipants = async (req, res) => {
     try {
         const userId = new mongoose.Types.ObjectId(req.params.userId);
-
-        console.log(userId);
         // Correct the $in syntax, userId should be in an array
         const conversations = await dbClient.Conversation.find({
             participants: { $in: [userId] }, // userId inside an array
         }).populate('participants', 'firstName lastName');
-
-        console.log(conversations);
         // Extract chat partners, excluding the current user
         const chatPartners = conversations.flatMap((convo) =>
             convo.participants.filter((participant) => !participant._id.equals(userId))
@@ -79,6 +76,48 @@ const chatParticipants = async (req, res) => {
     }
 };
 
+const searchUsers = async (req, res) => {
+    const searchTerm = req.query.q; // e.g., 'John'
+    
+    try {
+        const users = await dbClient.User.find({
+            $or: [
+                { firstName: { $regex: searchTerm, $options: 'i' } },
+                { lastName: { $regex: searchTerm, $options: 'i' } },
+                { email: { $regex: searchTerm, $options: 'i' } }
+            ]
+        }).select('firstName lastName email');
+
+        if (users.length === 0) {
+            return res.status(404).send({ message: 'No users found' });
+        }
+
+        res.status(200).send(users);
+    } catch (error) {
+        console.log('Error searching users:', error);
+        res.status(500).send({ error: 'Failed to search users' });
+    }
+};
+const UserDetails = async (req, res) => {
+    const userId = req.params.userId;
+    try {
+        // Convert userId to ObjectId
+        const objectId = new mongoose.Types.ObjectId(userId);
+
+        // Find user by _id
+        const user = await dbClient.User.findById(objectId);
+
+        if (!user) {
+            return res.status(404).send({ message: 'User not found' });
+        }
+
+        res.status(200).send(user);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: 'An error occurred' });
+    }
+};
 
 
-export default { addUser, loginUser, chatParticipants};
+
+export default { addUser, loginUser, chatParticipants, searchUsers, UserDetails};

@@ -5,6 +5,7 @@ const chatRouter = express.Router();
 
 chatRouter.post('', chatController.sendMessage);
 chatRouter.get('/conversation/:user1/:user2', chatController.getConversation);
+chatRouter.get("/conversation", chatController.startConversation)
 
 
 export default chatRouter;
