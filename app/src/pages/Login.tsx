@@ -7,20 +7,31 @@ import { useNavigate } from "react-router-dom";
 interface ValidationErrors{
   [key: string]: string;
 }
-interface loginResponse {
-    status: string
+interface LoginResponse {
+  status: string;
+  user?: {
+    _id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+  }; 
+  // token?: string;
+  // error?: string;
 }
+
 
 
 async function Authenticate(userEmail:string, password:string)
 {
-    const base_url = "https://cae62067-2a89-4c18-bf43-1d1141b4728e.mock.pstmn.io"
+    const base_url = "http://localhost:3000"
     try
     {
-        const response = await axios.post<loginResponse>(`${base_url}/auth/login`, {
+        const response = await axios.post<LoginResponse>(`${base_url}/users/auth/login`, {
             email: userEmail,
             password: password,
         });
+        console.log(response);
+        localStorage.setItem('currentUserId', response.data.user._id)
         return response.data;
     }
     catch (err){
