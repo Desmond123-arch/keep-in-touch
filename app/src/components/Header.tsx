@@ -10,7 +10,7 @@ function Header(){
           <Link to='/home' className="mb-3">
           <BsChat size={20}/>
           </Link>
-          <Link to='/people' className="mb-3">
+          <Link to='/search' className="mb-3">
           <GoPeople size={20} />
           </Link>
           <Link to='/profile' className="md:absolute md:bottom-0 p-3">

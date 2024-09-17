@@ -52,6 +52,7 @@ function Login() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
+    console.log(password);
     const re: RegExp = new RegExp("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     if (!re.test(email)) {
       validationErrors.email = "Invalid email was entered";
@@ -63,12 +64,11 @@ function Login() {
     } else {
       const response = await Authenticate(email, password);
       if (response && response.token) {
-        console.log(response);
+        console.log("Login successful", response);
         navigate("/home");
-    } else {
+      } else {
         setErrors({ email: "Login failed, please check your credentials." });
-    }
-    
+      }
       setErrors({});
     }
   };

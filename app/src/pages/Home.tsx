@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { FiSend } from "react-icons/fi";
 import axios from "axios";
 import io from "socket.io-client";
+import { useLocation } from "react-router-dom";
 
 interface Recents {
   _id: string;
@@ -24,24 +25,25 @@ interface Participant {
 }
 
 interface ChatMessage {
-  _id: string; // Conversation ID
+  _id: string;
   participants: Participant[];
   messages: Message[];
   lastUpdated: Date;
 }
 
 const socket = io("http://localhost:3000");
-const userId = localStorage.getItem('currentUserId');
+
+const userId = localStorage.getItem('currentUserId') || '';
+const token = localStorage.getItem('token') || '';
 
 async function getRecents() {
   const base_url = `http://localhost:3000/users/my_chats/${userId}`;
-  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
 
   try {
     const response = await axios.get(base_url, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
+        'Authorization': `Bearer ${token}`
       }
     });
     return response.data;
@@ -53,13 +55,12 @@ async function getRecents() {
 
 async function getChats(receiverId: string) {
   const base_url = `http://localhost:3000/chat/conversation/${userId}/${receiverId}`;
-  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
 
   try {
     const response = await axios.get(base_url, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
+        'Authorization': `Bearer ${token}`
       }
     });
     return response.data;
@@ -71,13 +72,12 @@ async function getChats(receiverId: string) {
 
 async function searchUsers(query: string) {
   const base_url = `http://localhost:3000/users/search?q=${query}`;
-  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
 
   try {
     const response = await axios.get(base_url, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
+        'Authorization': `Bearer ${token}`
       }
     });
     return response.data;
@@ -89,7 +89,6 @@ async function searchUsers(query: string) {
 
 async function startConversation(receiverId: string) {
   const base_url = `http://localhost:3000/conversations`;
-  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
 
   try {
     const response = await axios.post(base_url, {
@@ -98,7 +97,7 @@ async function startConversation(receiverId: string) {
     }, {
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
+        'Authorization': `Bearer ${token}`
       }
     });
     return response.data;
@@ -110,51 +109,51 @@ async function startConversation(receiverId: string) {
 
 function Home() {
   const [recents, setRecents] = useState<Recents[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [searchResults, setSearchResults] = useState<Recents[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string>("");
   const [myMessage, setMymessage] = useState<string>("");
   const [chats, setChats] = useState<ChatMessage | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  const fetchChats = useCallback(async () => {
-    const recentsData = await getRecents();
-    if (recentsData) {
-      setRecents(recentsData);
-    }
+  const location = useLocation();
+  const query = new URLSearchParams(location.search);
+  const chatWith = query.get('chatWith');
+
+  // Fetch recents on initial render
+  useEffect(() => {
+    const fetchRecents = async () => {
+      const recentsData = await getRecents();
+      if (recentsData) {
+        setRecents(recentsData);
+      }
+    };
+    fetchRecents();
   }, []);
 
-  const fetchChatMessages = async (receiverId: string) => {
+  // Fetch chat messages for a specific user
+  const fetchChatMessages = useCallback(async (receiverId: string) => {
     const chatData = await getChats(receiverId);
     if (chatData) {
       setChats(chatData);
     }
-  };
-
-  const searchForUsers = async () => {
-    const results = await searchUsers(searchQuery);
-    if (results) {
-      setSearchResults(results);
-    }
-  };
-
-  const handleSearchInput = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(event.target.value);
-  };
-
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    searchForUsers();
-  };
+  }, []);
 
   const handleUserSelection = async (userId: string) => {
-    await startConversation(userId);
-    setCurrentMessage(userId);
+    // Check if the selected user chat already exists in state
+    const existingChat = chats && chats.participants.some(participant => participant._id === userId);
+
+    if (!existingChat) {
+      await startConversation(userId);
+    }
+    
+    // Fetch and set chat messages for the selected user
     await fetchChatMessages(userId);
+    setCurrentMessage(userId);
   };
 
   const sendMessage = () => {
+    if (myMessage.trim() === "") return;
+
     const messageObj = {
       sender: userId,
       receiver: currentMessage,
@@ -170,26 +169,26 @@ function Home() {
   };
 
   useEffect(() => {
-    fetchChats();
+    if (chatWith) {
+      fetchChatMessages(chatWith);
+      setCurrentMessage(chatWith);
+    }
+  }, [chatWith, fetchChatMessages]);
 
+  useEffect(() => {
     socket.on("receiveMessage", (newMessage) => {
-      if (chats) {
-        setChats((prevChats) => {
-          if (prevChats && prevChats._id === newMessage.conversationId) {
-            return {
-              ...prevChats,
-              messages: [...prevChats.messages, newMessage],
-            };
-          }
-          return prevChats;
-        });
+      if (chats && chats._id === newMessage.conversationId) {
+        setChats(prevChats => ({
+          ...prevChats,
+          messages: [...prevChats.messages, newMessage],
+        }));
       }
     });
 
     return () => {
       socket.off("receiveMessage");
     };
-  }, [fetchChats, chats]);
+  }, [chats]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -199,37 +198,6 @@ function Home() {
 
   return (
     <div className="w-full h-full flex">
-      {/* Search bar */}
-      <div className="w-full p-2 border-b-2 border-gray-300">
-        <form onSubmit={handleSearchSubmit}>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={handleSearchInput}
-            placeholder="Search for users..."
-            className="w-full p-2 border border-gray-300 rounded-lg"
-          />
-        </form>
-        <div className="mt-2">
-          {searchResults.map((user) => (
-            <button
-              key={user._id}
-              className="flex flex-row items-center gap-5 p-2 my-2 w-full"
-              onClick={() => handleUserSelection(user._id)}
-            >
-              <img
-                className="w-12 h-12 rounded-full"
-                src="https://images.unsplash.com/photo-1725714834280-0c7584637d06?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                alt="user-avatar"
-              />
-              <div className="w-[75%] text-start">
-                <p className="font-bold">{user.firstName}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Chat list, hide on medium screens when a conversation is open */}
       <div className={`md:w-[30%] w-full h-full border-r-2 dark:border-gray-500 overflow-y-auto ${currentMessage ? 'hidden md:block' : ''}`}>
         <h1 className="text-2xl p-2 pl-2">Chats</h1>
@@ -239,8 +207,7 @@ function Home() {
               key={receiver._id}
               className="flex flex-row items-center gap-5 p-2 my-2 w-full"
               onClick={async () => {
-                setCurrentMessage(receiver._id);
-                await fetchChatMessages(receiver._id);
+                await handleUserSelection(receiver._id);
               }}
             >
               <img
@@ -261,7 +228,7 @@ function Home() {
         {/* Back button */}
         {currentMessage && (
           <button 
-            className="absolute top-4 left-4 p-2 bg-gray-200 rounded-md md:hidden" 
+            className="sticky top-4 left-4 p-2 bg-gray-200 rounded-md md:hidden" 
             onClick={() => setCurrentMessage("")}
           >
             Back
