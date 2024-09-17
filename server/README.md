@@ -27,7 +27,7 @@ Make sure you have the following installed:
     node socket.io
     ```
     ## API Routes
-       # User Routes
+    # User Routes
         
         Create a New User
         URL: /users/auth/create
@@ -78,7 +78,7 @@ Make sure you have the following installed:
         Response:
         201: Message sent successfully.
         500: Error sending message.
-        
+
         Get a Conversation Between Two Users
         URL: /chat/conversation/:senderId/:receiverId
         Method: GET
