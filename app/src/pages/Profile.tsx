@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 interface UserProfile {
   _id: string;
@@ -32,6 +33,7 @@ async function getUserProfile() {
 
 function Profile() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -42,6 +44,12 @@ function Profile() {
     };
     fetchUserProfile();
   }, []);
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('currentUserId');
+    navigate('/login'); // Redirect to login page
+  };
 
   return (
     <div className="w-full h-full p-4 flex flex-col items-center bg-gray-100 dark:bg-gray-800">
@@ -57,6 +65,12 @@ function Profile() {
             <p className="text-gray-500 dark:text-gray-300 mt-2">{userProfile.email}</p>
             <p className="text-gray-700 dark:text-gray-400 mt-4">{userProfile.bio}</p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="mt-6 px-4 py-2 bg-red-500 text-white rounded-lg"
+          >
+            Logout
+          </button>
         </div>
       ) : (
         <p>Loading...</p>
