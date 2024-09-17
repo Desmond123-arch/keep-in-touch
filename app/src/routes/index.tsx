@@ -1,14 +1,17 @@
 import React from "react";
 import pathConstants from "./pathConstants";
-import MainLayout from "../components/MainLayout";
-import AuthLayout from "../components/AuthLayout";
+import PrivateRoute from "../components/PrivateRoute";
 
 const Home = React.lazy(() => import("../pages/Home"));
 const SignUp = React.lazy(() => import("../pages/SignUp"));
 const Login = React.lazy(() => import("../pages/Login"));
 
 const routes = [
-    { path: pathConstants.HOME, element: <Home/> },
+    { path: pathConstants.HOME, element: 
+      <PrivateRoute>
+        <Home/>
+      </PrivateRoute>
+    },
 
   ];
 export const authRoutes = [

@@ -1,4 +1,3 @@
-
 const pathConstants = {
     SIGHUP: '/',
     LOGIN: '/login',

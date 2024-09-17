@@ -25,25 +25,25 @@ interface Participant {
 
 interface ChatMessage {
   _id: string; // Conversation ID
-  participants: Participant[]; // Participants in the conversation
+  participants: Participant[];
   messages: Message[];
   lastUpdated: Date;
 }
 
-// Set up your Socket.IO connection (replace with your actual server URL)
 const socket = io("http://localhost:3000");
-
 const userId = localStorage.getItem('currentUserId');
 
 async function getRecents() {
   const base_url = `http://localhost:3000/users/my_chats/${userId}`;
+  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
   try {
     const response = await axios.get(base_url, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
       }
     });
-    console.log(response.data);
     return response.data;
   } catch (err) {
     console.error('Error fetching recents:', err);
@@ -53,28 +53,68 @@ async function getRecents() {
 
 async function getChats(receiverId: string) {
   const base_url = `http://localhost:3000/chat/conversation/${userId}/${receiverId}`;
+  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
   try {
     const response = await axios.get(base_url, {
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
       }
     });
-    console.log(response.data);
-    return response.data; // Return the full conversation data
+    return response.data;
   } catch (err) {
     console.error('Error fetching chats:', err);
     return null;
   }
 }
 
+async function searchUsers(query: string) {
+  const base_url = `http://localhost:3000/users/search?q=${query}`;
+  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
+  try {
+    const response = await axios.get(base_url, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
+      }
+    });
+    return response.data;
+  } catch (err) {
+    console.error('Error searching users:', err);
+    return null;
+  }
+}
+
+async function startConversation(receiverId: string) {
+  const base_url = `http://localhost:3000/conversations`;
+  const token = localStorage.getItem('token'); // Retrieve the token from localStorage
+
+  try {
+    const response = await axios.post(base_url, {
+      senderId: userId,
+      receiverId: receiverId
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` // Include the JWT in the Authorization header
+      }
+    });
+    return response.data;
+  } catch (err) {
+    console.error('Error starting conversation:', err);
+    return null;
+  }
+}
+
 function Home() {
   const [recents, setRecents] = useState<Recents[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchResults, setSearchResults] = useState<Recents[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string>("");
   const [myMessage, setMymessage] = useState<string>("");
   const [chats, setChats] = useState<ChatMessage | null>(null);
-  
-  // Replace with your actual user ID
-  const userId = localStorage.getItem('currentUserId'); // Current logged-in user ID
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
@@ -92,17 +132,36 @@ function Home() {
     }
   };
 
+  const searchForUsers = async () => {
+    const results = await searchUsers(searchQuery);
+    if (results) {
+      setSearchResults(results);
+    }
+  };
+
+  const handleSearchInput = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(event.target.value);
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    searchForUsers();
+  };
+
+  const handleUserSelection = async (userId: string) => {
+    await startConversation(userId);
+    setCurrentMessage(userId);
+    await fetchChatMessages(userId);
+  };
+
   const sendMessage = () => {
     const messageObj = {
-      sender: userId, // Current user ID
-      receiver: '66e873ac5404c4bbe872190c', // Replace with actual receiver ID
+      sender: userId,
+      receiver: currentMessage,
       message: myMessage,
     };
 
-    // Emit the message via Socket.IO
     socket.emit("sendMessage", messageObj);
-
-    // Clear the input field after sending
     setMymessage("");
   };
 
@@ -140,26 +199,55 @@ function Home() {
 
   return (
     <div className="w-full h-full flex">
-      <div className="md:w-[30%] h-full w-full border-r-2 dark:border-gray-500 overflow-y-auto">
+      {/* Search bar */}
+      <div className="w-full p-2 border-b-2 border-gray-300">
+        <form onSubmit={handleSearchSubmit}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchInput}
+            placeholder="Search for users..."
+            className="w-full p-2 border border-gray-300 rounded-lg"
+          />
+        </form>
+        <div className="mt-2">
+          {searchResults.map((user) => (
+            <button
+              key={user._id}
+              className="flex flex-row items-center gap-5 p-2 my-2 w-full"
+              onClick={() => handleUserSelection(user._id)}
+            >
+              <img
+                className="w-12 h-12 rounded-full"
+                src="https://images.unsplash.com/photo-1725714834280-0c7584637d06?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                alt="user-avatar"
+              />
+              <div className="w-[75%] text-start">
+                <p className="font-bold">{user.firstName}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat list, hide on medium screens when a conversation is open */}
+      <div className={`md:w-[30%] w-full h-full border-r-2 dark:border-gray-500 overflow-y-auto ${currentMessage ? 'hidden md:block' : ''}`}>
         <h1 className="text-2xl p-2 pl-2">Chats</h1>
         <div className="overflow-y-auto">
           {recents.map((receiver) => (
             <button
               key={receiver._id}
-              id={receiver.firstName}
               className="flex flex-row items-center gap-5 p-2 my-2 w-full"
               onClick={async () => {
                 setCurrentMessage(receiver._id);
                 await fetchChatMessages(receiver._id);
               }}
             >
-              <div>
-                <img
-                  className="w-12 h-12 rounded-full"
-                  src="https://images.unsplash.com/photo-1725714834280-0c7584637d06?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-                  alt="user-avatar"
-                />
-              </div>
+              <img
+                className="w-12 h-12 rounded-full"
+                src="https://images.unsplash.com/photo-1725714834280-0c7584637d06?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                alt="user-avatar"
+              />
               <div className="w-[75%] text-start">
                 <p className="font-bold">{receiver.firstName}</p>
               </div>
@@ -168,33 +256,33 @@ function Home() {
         </div>
       </div>
 
-      <div
-        className={`relative w-[70%] hidden md:block ${currentMessage === "" ? "bg-image" : ""}`}
-      >
+      {/* Conversation view */}
+      <div className={`relative w-full md:w-[70%] ${currentMessage === "" ? "hidden md:block" : ""}`}>
+        {/* Back button */}
+        {currentMessage && (
+          <button 
+            className="absolute top-4 left-4 p-2 bg-gray-200 rounded-md md:hidden" 
+            onClick={() => setCurrentMessage("")}
+          >
+            Back
+          </button>
+        )}
         <div
           className="h-[calc(100vh-100px)] overflow-y-auto p-4"
           ref={chatContainerRef}
         >
           {currentMessage !== "" && chats && chats.messages.map((message) => {
-            
-            const isSentByMe = message.sender === userId; // Check if the message is sent by the current user
+            const isSentByMe = message.sender === userId;
             return (
-              // <div key={message._id} className={`chat ${isSentByMe ? "chat-start" : "chat-end"} mb-2`}>
-              //   <div className={`p-2 rounded-lg ${isSentByMe ? "bg-blue-500 text-white" : "bg-gray-300 text-black"}`}>
-              //     {message.message}
-              //   </div>
-              // </div>
-              <div key={message._id} className={`chat ${isSentByMe? "chat-end": "chat-start"}`}>
-                <div className="chat-bubble">
-                  {message.message}
-                </div>
+              <div key={message._id} className={`chat ${isSentByMe ? "chat-end" : "chat-start"}`}>
+                <div className="chat-bubble">{message.message}</div>
               </div>
             );
           })}
         </div>
-        <div
-          className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${currentMessage !== "" ? "" : "hidden"}`}
-        >
+
+        {/* Message input, only show when a conversation is open */}
+        <div className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${currentMessage !== "" ? "" : "hidden"}`}>
           <input
             type="text"
             className="w-full p-4 border border-gray-300 rounded-lg"
