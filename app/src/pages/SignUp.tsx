@@ -29,7 +29,7 @@ async function CreateAccount(userData: UserData) {
       password: userData.password,
     });
     console.log(response);
-    localStorage.setItem('currentUserId', response.data.user?._id || "");
+    sessionStorage.setItem('currentUserId', response.data.user?._id || "");
     return response.data;
   } catch (err) {
     console.log(err);

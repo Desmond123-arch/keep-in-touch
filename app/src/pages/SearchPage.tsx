@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-async function searchUsers(query, token) {
+async function searchUsers(query: string, token: string | null) {
   const base_url = `http://localhost:3000/users/search?q=${query}`;
 
   try {
@@ -23,8 +23,8 @@ export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  const userId = localStorage.getItem('currentUserId');
+  const token = sessionStorage.getItem('token');
+  const userId = sessionStorage.getItem('currentUserId');
 
   const handleSearchInput = (event) => {
     setSearchQuery(event.target.value);

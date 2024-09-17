@@ -1,1 +1,1 @@
-Chat application with Socket.io
+This project is a real-time chat application backend built using Node.js, Express, and MongoDB. It handles user authentication, message exchange between users, and conversation management through RESTful APIs. Real-time communication is powered by Socket.IO, allowing users to send and receive messages instantly. The backend uses Mongoose to define schemas for users, messages, and conversations, storing all chat data in a MongoDB database. The API provides endpoints for user registration, login, message handling, and conversation retrieval.

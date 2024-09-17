@@ -10,8 +10,8 @@ interface UserProfile {
   bio: string;
 }
 
-const token = localStorage.getItem('token') || '';
-const userId = localStorage.getItem('currentUserId') || '';
+const token = sessionStorage.getItem('token') || '';
+const userId = sessionStorage.getItem('currentUserId') || '';
 
 async function getUserProfile() {
   const base_url = `http://localhost:3000/users/${userId}`;

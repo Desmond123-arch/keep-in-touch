@@ -33,8 +33,8 @@ interface ChatMessage {
 
 const socket = io("http://localhost:3000");
 
-const userId = localStorage.getItem('currentUserId') || '';
-const token = localStorage.getItem('token') || '';
+const userId = sessionStorage.getItem('currentUserId') || '';
+const token = sessionStorage.getItem('token') || '';
 
 async function getRecents() {
   const base_url = `http://localhost:3000/users/my_chats/${userId}`;

@@ -27,10 +27,10 @@ async function Authenticate(userEmail: string, password: string) {
       password: password,
     });
 
-    // Save the token in localStorage
+    // Save the token in SessionStorage
     if (response.data.token) {
-      localStorage.setItem("token", response.data.token); // Store the JWT token
-      localStorage.setItem("currentUserId", response.data.user?._id || "");
+      sessionStorage.setItem("token", response.data.token); // Store the JWT token
+      sessionStorage.setItem("currentUserId", response.data.user?._id || "");
     }
 
     return response.data;
