@@ -1,19 +1,17 @@
 import { Outlet } from "react-router-dom";
 import { Suspense } from "react";
 import Header from "./Header";
-import Footer from "./Footer";
 
 
 export default function MainLayout(){
     return (
-        <body className="h-screen grid grid-rows-1">
-        <Header/>
-            <main>
+        <div className="w-full h-screen flex flex-col-reverse md:flex-row">
+            <Header/>
+            <main className="w-full h-full">
             <Suspense fallback={<div>Loading...</div>}>
-                    <Outlet />
+                <Outlet/>
             </Suspense>
             </main>
-        <Footer/>
-        </body>
+        </div>
     )
 }

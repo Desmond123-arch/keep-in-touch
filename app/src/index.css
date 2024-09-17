@@ -6,5 +6,7 @@
   .center{
     @apply absolute translate-x-[-50%] translate-y-[-50%] left-1/2 top-1/2
   }
-   
+  .bg-image{
+    background: url("https://images.unsplash.com/photo-1720802616209-c174c23f6565?q=80&w=1471&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D");
+  }
 }
