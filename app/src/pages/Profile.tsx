@@ -34,7 +34,7 @@ async function getUserProfile() {
 function Profile() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const navigate = useNavigate();
-
+  
   useEffect(() => {
     const fetchUserProfile = async () => {
       const profileData = await getUserProfile();
@@ -44,6 +44,7 @@ function Profile() {
     };
     fetchUserProfile();
   }, []);
+
 
   const handleLogout = () => {
     sessionStorage.removeItem('token');

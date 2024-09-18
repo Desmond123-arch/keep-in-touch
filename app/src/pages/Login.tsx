@@ -43,6 +43,7 @@ async function Authenticate(userEmail: string, password: string) {
 function Login() {
   const navigate = useNavigate();
   const [errors, setErrors] = useState<ValidationErrors>({});
+  const [loginError, setLoginError] = useState<Boolean>(false);
   let validationErrors: ValidationErrors = {};
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -67,7 +68,8 @@ function Login() {
         console.log("Login successful", response);
         navigate("/home");
       } else {
-        setErrors({ email: "Login failed, please check your credentials." });
+        // setErrors({ email: "" });
+        setLoginError(true)
       }
       setErrors({});
     }
@@ -85,6 +87,7 @@ function Login() {
         <div className="flex flex-col w-[70%] mx-auto mb-3">
           <label className="text-start font-semibold" htmlFor="password">Password</label>
           <input type="password" name="password" id="password" placeholder="Enter your password" className="placeholder:text-gray-400 w-full rounded-2xl text-md p-2 border border-gray-300" required />
+          {loginError && <p>Login failed, please check your credentials.</p>}
         </div>
         <button type="submit" className="text-white bg-black rounded-2xl text-md p-2 border border-gray-300 w-[70%] my-5">Log In</button>
       </form>

@@ -2,110 +2,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { FiSend } from "react-icons/fi";
 import axios from "axios";
 import io from "socket.io-client";
-import { useLocation } from "react-router-dom";
-
-interface Recents {
-  _id: string;
-  firstName: string;
-  lastName: string;
-}
-
-interface Message {
-  _id: string;
-  message: string;
-  sender: string;
-  receiver: string;
-  conversationId: string;
-  timestamp: string;
-}
-
-interface Participant {
-  _id: string;
-  firstName: string;
-}
-
-interface ChatMessage {
-  _id: string;
-  participants: Participant[];
-  messages: Message[];
-  lastUpdated: Date;
-}
+import { useLocation, useNavigate } from "react-router-dom";
 
 const socket = io("http://localhost:3000");
-
-const userId = sessionStorage.getItem('currentUserId') || '';
-const token = sessionStorage.getItem('token') || '';
-
-async function getRecents() {
-  const base_url = `http://localhost:3000/users/my_chats/${userId}`;
-
-  try {
-    const response = await axios.get(base_url, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response.data;
-  } catch (err) {
-    console.error('Error fetching recents:', err);
-    return null;
-  }
-}
-
-async function getChats(receiverId: string) {
-  const base_url = `http://localhost:3000/chat/conversation/${userId}/${receiverId}`;
-
-  try {
-    const response = await axios.get(base_url, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response.data;
-  } catch (err) {
-    console.error('Error fetching chats:', err);
-    return null;
-  }
-}
-
-async function searchUsers(query: string) {
-  const base_url = `http://localhost:3000/users/search?q=${query}`;
-
-  try {
-    const response = await axios.get(base_url, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response.data;
-  } catch (err) {
-    console.error('Error searching users:', err);
-    return null;
-  }
-}
-
-async function startConversation(receiverId: string) {
-  const base_url = `http://localhost:3000/conversations`;
-
-  try {
-    const response = await axios.post(base_url, {
-      senderId: userId,
-      receiverId: receiverId
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response.data;
-  } catch (err) {
-    console.error('Error starting conversation:', err);
-    return null;
-  }
-}
 
 function Home() {
   const [recents, setRecents] = useState<Recents[]>([]);
@@ -114,41 +13,67 @@ function Home() {
   const [chats, setChats] = useState<ChatMessage | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
-
+  const navigate = useNavigate();
   const location = useLocation();
   const query = new URLSearchParams(location.search);
   const chatWith = query.get('chatWith');
 
-  // Fetch recents on initial render
+  // Retrieve token and userId from session storage
+  const token = sessionStorage.getItem('token') || '';
+  const userId = sessionStorage.getItem('currentUserId') || '';
+
+  // Function to fetch recent chats
+  async function getRecents() {
+    const base_url = `http://localhost:3000/users/my_chats/${userId}`;
+    try {
+      const response = await axios.get(base_url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching recents:', err);
+      return null;
+    }
+  }
+
+  // Function to fetch chat messages
+  async function getChats(receiverId: string) {
+    const base_url = `http://localhost:3000/chat/conversation/${userId}/${receiverId}`;
+    try {
+      const response = await axios.get(base_url, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching chats:', err);
+      return null;
+    }
+  }
+
+  // Fetch recents and chat messages on component mount or when chatWith changes
   useEffect(() => {
-    const fetchRecents = async () => {
+    const fetchInitialData = async () => {
       const recentsData = await getRecents();
-      if (recentsData) {
-        setRecents(recentsData);
+      if (recentsData) setRecents(recentsData);
+      
+      if (chatWith) {
+        const chatData = await getChats(chatWith);
+        if (chatData) setChats(chatData);
       }
     };
-    fetchRecents();
-  }, []);
 
-  // Fetch chat messages for a specific user
+    fetchInitialData();
+  }, [chatWith, token, userId]);
+
   const fetchChatMessages = useCallback(async (receiverId: string) => {
     const chatData = await getChats(receiverId);
-    if (chatData) {
-      setChats(chatData);
-    }
-  }, []);
+    if (chatData) setChats(chatData);
+  }, [userId, token]);
 
-  const handleUserSelection = async (userId: string) => {
-    // Check if the selected user chat already exists in state
-    const existingChat = chats && chats.participants.some(participant => participant._id === userId);
-
-    if (!existingChat) {
-      await startConversation(userId);
-    }
-    
-    // Fetch and set chat messages for the selected user
-    await fetchChatMessages(userId);
-    setCurrentMessage(userId);
+  const handleUserSelection = async (receiverId: string) => {
+    setChats(null);
+    setCurrentMessage(receiverId);
+    await fetchChatMessages(receiverId);
   };
 
   const sendMessage = () => {
@@ -162,10 +87,6 @@ function Home() {
 
     socket.emit("sendMessage", messageObj);
     setMymessage("");
-  };
-
-  const handleMymessage = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setMymessage(event.target.value);
   };
 
   useEffect(() => {
@@ -196,9 +117,16 @@ function Home() {
     }
   }, [chats]);
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('currentUserId');
+    setRecents([]); // Clear recents
+    setChats(null); // Clear chats
+    navigate('/login');
+  };
+
   return (
     <div className="w-full h-full flex">
-      {/* Chat list, hide on medium screens when a conversation is open */}
       <div className={`md:w-[30%] w-full h-full border-r-2 dark:border-gray-500 overflow-y-auto ${currentMessage ? 'hidden md:block' : ''}`}>
         <h1 className="text-2xl p-2 pl-2">Chats</h1>
         <div className="overflow-y-auto">
@@ -223,9 +151,7 @@ function Home() {
         </div>
       </div>
 
-      {/* Conversation view */}
       <div className={`relative w-full md:w-[70%] ${currentMessage === "" ? "hidden md:block" : ""}`}>
-        {/* Back button */}
         {currentMessage && (
           <button 
             className="sticky top-4 left-4 p-2 bg-gray-200 rounded-md md:hidden" 
@@ -238,23 +164,23 @@ function Home() {
           className="h-[calc(100vh-100px)] overflow-y-auto p-4"
           ref={chatContainerRef}
         >
-          {currentMessage !== "" && chats && chats.messages.map((message) => {
-            const isSentByMe = message.sender === userId;
-            return (
-              <div key={message._id} className={`chat ${isSentByMe ? "chat-end" : "chat-start"}`}>
-                <div className="chat-bubble">{message.message}</div>
+          {chats && chats.messages.map((msg) => (
+            <div key={msg._id} className={`flex ${msg.sender === userId ? 'justify-end' : 'justify-start'}`}>
+              <div
+                className={`p-2 rounded-lg ${msg.sender === userId ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'}`}
+              >
+                {msg.message}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
-        {/* Message input, only show when a conversation is open */}
         <div className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${currentMessage !== "" ? "" : "hidden"}`}>
           <input
             type="text"
             className="w-full p-4 border border-gray-300 rounded-lg"
             value={myMessage}
-            onChange={handleMymessage}
+            onChange={e => setMymessage(e.target.value)}
           />
           <button className="ml-2" onClick={sendMessage}>
             <FiSend size={30} />
