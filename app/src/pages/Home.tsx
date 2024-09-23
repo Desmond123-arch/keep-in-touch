@@ -3,6 +3,7 @@ import { FiSend } from "react-icons/fi";
 import axios from "axios";
 import io from "socket.io-client";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ImAttachment } from "react-icons/im";
 
 export const socket = io("http://localhost:3000");
 
@@ -39,7 +40,9 @@ function Home() {
   const [currentMessage, setCurrentMessage] = useState<string>("");
   const [myMessage, setMymessage] = useState<string>("");
   const [chats, setChats] = useState<ChatMessage | null>(null);
-  const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
+  const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(
+    new Map()
+  );
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -84,10 +87,10 @@ function Home() {
     const base_url = `http://localhost:3000/users/IsOnline/${userId}`;
     try {
       const response = await axios.get(base_url);
-      return response.data;  // Assuming response.data returns true/false for online status
+      return response.data; // Assuming response.data returns true/false for online status
     } catch (err) {
       console.error("Error checking online status:", err);
-      return false;  // Return false if there's an error
+      return false; // Return false if there's an error
     }
   }
 
@@ -96,13 +99,13 @@ function Home() {
     recents.forEach(async (recentUser) => {
       const isOnline = await IsOnline(recentUser._id);
       setOnlineUsers((prev) => {
-        const updatedUsers = new Map(prev);  // Clone the previous state
+        const updatedUsers = new Map(prev); // Clone the previous state
         if (isOnline) {
           updatedUsers.set(recentUser._id, "online");
         } else {
           updatedUsers.delete(recentUser._id);
         }
-        return updatedUsers;  // Return the new state
+        return updatedUsers; // Return the new state
       });
     });
   }
@@ -110,11 +113,11 @@ function Home() {
   useEffect(() => {
     const statusInterval = setInterval(() => {
       if (recents.length > 0) {
-        checkStatus();  // Only check status if recents are populated
+        checkStatus(); // Only check status if recents are populated
       }
     }, interval);
 
-    return () => clearInterval(statusInterval);  // Cleanup interval on unmount
+    return () => clearInterval(statusInterval); // Cleanup interval on unmount
   }, [recents]);
 
   useEffect(() => {
@@ -123,7 +126,7 @@ function Home() {
       if (recentsData) setRecents(recentsData);
 
       recentsData.forEach(async (element: { _id: string }) => {
-        await IsOnline(element._id);  // Check if each recent user is online initially
+        await IsOnline(element._id); // Check if each recent user is online initially
       });
 
       if (chatWith) {
@@ -185,7 +188,8 @@ function Home() {
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   }, [chats]);
 
@@ -234,7 +238,7 @@ function Home() {
           </button>
         )}
         <div
-          className="h-[calc(100vh-100px)] overflow-y-auto p-4"
+          className="h-[calc(100vh-100px)] overflow-y-auto p-4 py-10 pb-[5rem] md:pb-2"
           ref={chatContainerRef}
         >
           {chats &&
@@ -259,7 +263,7 @@ function Home() {
         </div>
 
         <div
-          className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${
+          className={`mt-5 absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${
             currentMessage !== "" ? "" : "hidden"
           }`}
         >
@@ -269,6 +273,9 @@ function Home() {
             value={myMessage}
             onChange={(e) => setMymessage(e.target.value)}
           />
+          <label htmlFor="" className="absolute left-[90%]">
+            <ImAttachment size={30}/>
+          </label>
           <button className="ml-2" onClick={sendMessage}>
             <FiSend size={30} />
           </button>
