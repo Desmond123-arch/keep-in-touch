@@ -46,6 +46,7 @@ function Home(this: any) {
   const [myMessage, setMymessage] = useState<string>("");
   const [chats, setChats] = useState<ChatMessage | null>(null);
   const [file, setFile] = useState<File | null>(null);
+
   const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(
     new Map()
   );
@@ -129,12 +130,13 @@ function Home(this: any) {
   useEffect(() => {
     const fetchInitialData = async () => {
       const recentsData = await getRecents();
-      if (recentsData) setRecents(recentsData);
+      if (recentsData) {
+        setRecents(recentsData);
+        console.log("Recents Data:", recentsData); // Debugging line
+      }
+  
 
-      recentsData.forEach(async (element: { _id: string }) => {
-        await IsOnline(element._id); // Check if each recent user is online initially
-      });
-
+  
       if (chatWith) {
         const chatData = await getChats(chatWith);
         if (chatData) setChats(chatData);
@@ -142,6 +144,7 @@ function Home(this: any) {
     };
     fetchInitialData();
   }, [chatWith, token, userId]);
+  
 
   const fetchChatMessages = useCallback(
     async (receiverId: string) => {
@@ -159,30 +162,56 @@ function Home(this: any) {
 
   const sendMessage = () => {
     if (myMessage.trim() === "") return;
-    const messageObj = file
-      ? {
-          sender: userId,
-          receiver: currentMessage,
-          message: file,
-          type: "file",
-          fileName: file.name,
-          mimeType: file.type,
-        }
-      : {
-          sender: userId,
-          receiver: currentMessage,
-          message: myMessage,
-        };
-    console.log(messageObj);
-    socket.emit("sendMessage", messageObj);
+  
+    const messageObj = {
+      sender: userId,
+      receiver: currentMessage,
+      message:"",
+      type: "",
+      fileName: "",
+      mimeType: "",
+    };
+  
+    if (file) {
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        // Convert the result to base64
+        const base64 = reader.result?.toString().replace(/^data:.*;base64,/, '') || '';
+        
+        // Update messageObj with file data
+        messageObj.message = base64;
+        messageObj.type = "file";
+        messageObj.fileName = file.name;
+        messageObj.mimeType = file.type;
+  
+        // Emit the message after the file has been read
+        console.log('here');
+        console.log(messageObj);
+        socket.emit("sendMessage", messageObj);
+      };
+  
+      // Read the file as a Data URL
+      reader.readAsDataURL(file);
+    } else {
+      // Handle sending a text message
+      messageObj.message = myMessage;
+      
+      console.log('here');
+      console.log(messageObj);
+      socket.emit("sendMessage", messageObj);
+    }
+  
+    // Reset state after sending
     setMymessage("");
     setFile(null);
   };
+  
 
   const selectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setMymessage(e.target.files[0].name);
+    if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
+      setMymessage(e.target.files[0].name); // Optional, remove if not needed
     }
   };
 
@@ -194,24 +223,24 @@ function Home(this: any) {
   
 
   useEffect(() => {
-    socket.on("receiveMessage", (message) => {
-        console.log("New message received:", message); // Log the received message
-
-        if (chats && chats._id === message.conversationId) {
-            setChats((prevChats) => {
-                console.log("Previous chats:", prevChats); // Log previous chats for debugging
-                const updatedMessages = [...(prevChats?.messages || []), message];
-                console.log("Updated messages:", updatedMessages); // Log updated messages
-                return { ...prevChats, messages: updatedMessages };
-            });
+    const handleReceiveMessage = (message: Message) => {
+      
+      setChats((prevChats) => {
+        if (prevChats && prevChats._id === message.conversationId) {
+          const updatedMessages = [...(prevChats.messages || []), message];
+          console.log('message recieved');
+          return { ...prevChats, messages: updatedMessages };
         }
-    });
-
-    // Cleanup function to remove the listener when component unmounts
-    return () => {
-        socket.off("receiveMessage");
+        return prevChats;
+      });
     };
-}, [chats]);
+    socket.on("receiveMessage", handleReceiveMessage);
+  
+    return () => {
+      socket.off("receiveMessage", handleReceiveMessage);
+    };
+  }, [socket, chats]);
+  
 
 
 

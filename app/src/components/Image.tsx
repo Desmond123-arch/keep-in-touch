@@ -1,9 +1,13 @@
-const Image = ({ fileName, base64Data }) => {
+interface ImageProps {
+    fileName?: string; 
+    base64Data: string;
+  }
+const Image: React.FC<ImageProps> = ({ fileName, base64Data }) => {
     return (
         <div>
             <img
                 style={{ width: 150, height: "auto" }}
-                src={`data:image/jpeg;base64,${base64Data}`} // assuming the image is JPEG, adjust if needed
+                src={`data:image/jpg;base64,${base64Data}`} 
                 alt={fileName}
             />
         </div>
