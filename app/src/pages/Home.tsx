@@ -263,22 +263,24 @@ function Home() {
         </div>
 
         <div
-          className={`mt-5 absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${
+          className={`mt-5 md:mb-2 rounded-md bg-gray-950 absolute bottom-0 left-0 right-0 w-full flex items-center  ${
             currentMessage !== "" ? "" : "hidden"
           }`}
         >
           <input
             type="text"
-            className="w-full p-4 border border-gray-300 rounded-lg"
+            className="w-full p-4 rounded-lg bg-gray-950 "
             value={myMessage}
             onChange={(e) => setMymessage(e.target.value)}
           />
-          <label htmlFor="" className="absolute left-[90%]">
-            <ImAttachment size={30}/>
-          </label>
-          <button className="ml-2" onClick={sendMessage}>
-            <FiSend size={30} />
-          </button>
+          <div className="flex ml-2">
+            <button>
+              <ImAttachment size={30} />
+            </button>
+            <button className="ml-2" onClick={sendMessage}>
+              <FiSend size={30} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
