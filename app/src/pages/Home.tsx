@@ -4,71 +4,143 @@ import axios from "axios";
 import io from "socket.io-client";
 import { useLocation, useNavigate } from "react-router-dom";
 
-const socket = io("http://localhost:3000");
+export const socket = io("http://localhost:3000");
+
+interface Recents {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  IsOnline: boolean;
+}
+
+interface Message {
+  _id: string;
+  message: string;
+  sender: string;
+  receiver: string;
+  conversationId: string;
+  timestamp: string;
+}
+
+interface Participant {
+  _id: string;
+  firstName: string;
+}
+
+interface ChatMessage {
+  _id: string;
+  participants: Participant[];
+  messages: Message[];
+  lastUpdated: Date;
+}
 
 function Home() {
   const [recents, setRecents] = useState<Recents[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string>("");
   const [myMessage, setMymessage] = useState<string>("");
   const [chats, setChats] = useState<ChatMessage | null>(null);
+  const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const query = new URLSearchParams(location.search);
-  const chatWith = query.get('chatWith');
+  const chatWith = query.get("chatWith");
+  const interval = 3000;
 
-  // Retrieve token and userId from session storage
-  const token = sessionStorage.getItem('token') || '';
-  const userId = sessionStorage.getItem('currentUserId') || '';
+  const token = sessionStorage.getItem("token") || "";
+  const userId = sessionStorage.getItem("currentUserId") || "";
 
-  // Function to fetch recent chats
+  socket.emit("user-added", userId);
+
   async function getRecents() {
     const base_url = `http://localhost:3000/users/my_chats/${userId}`;
     try {
       const response = await axios.get(base_url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
     } catch (err) {
-      console.error('Error fetching recents:', err);
+      console.error("Error fetching recents:", err);
       return null;
     }
   }
 
-  // Function to fetch chat messages
   async function getChats(receiverId: string) {
     const base_url = `http://localhost:3000/chat/conversation/${userId}/${receiverId}`;
     try {
       const response = await axios.get(base_url, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       return response.data;
     } catch (err) {
-      console.error('Error fetching chats:', err);
+      console.error("Error fetching chats:", err);
       return null;
     }
   }
 
-  // Fetch recents and chat messages on component mount or when chatWith changes
+  // Check if a user is online
+  async function IsOnline(userId: string) {
+    const base_url = `http://localhost:3000/users/IsOnline/${userId}`;
+    try {
+      const response = await axios.get(base_url);
+      return response.data;  // Assuming response.data returns true/false for online status
+    } catch (err) {
+      console.error("Error checking online status:", err);
+      return false;  // Return false if there's an error
+    }
+  }
+
+  // Function to continuously check the status of all users in recents
+  function checkStatus() {
+    recents.forEach(async (recentUser) => {
+      const isOnline = await IsOnline(recentUser._id);
+      setOnlineUsers((prev) => {
+        const updatedUsers = new Map(prev);  // Clone the previous state
+        if (isOnline) {
+          updatedUsers.set(recentUser._id, "online");
+        } else {
+          updatedUsers.delete(recentUser._id);
+        }
+        return updatedUsers;  // Return the new state
+      });
+    });
+  }
+
+  useEffect(() => {
+    const statusInterval = setInterval(() => {
+      if (recents.length > 0) {
+        checkStatus();  // Only check status if recents are populated
+      }
+    }, interval);
+
+    return () => clearInterval(statusInterval);  // Cleanup interval on unmount
+  }, [recents]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       const recentsData = await getRecents();
       if (recentsData) setRecents(recentsData);
-      
+
+      recentsData.forEach(async (element: { _id: string }) => {
+        await IsOnline(element._id);  // Check if each recent user is online initially
+      });
+
       if (chatWith) {
         const chatData = await getChats(chatWith);
         if (chatData) setChats(chatData);
       }
     };
-
     fetchInitialData();
   }, [chatWith, token, userId]);
 
-  const fetchChatMessages = useCallback(async (receiverId: string) => {
-    const chatData = await getChats(receiverId);
-    if (chatData) setChats(chatData);
-  }, [userId, token]);
+  const fetchChatMessages = useCallback(
+    async (receiverId: string) => {
+      const chatData = await getChats(receiverId);
+      if (chatData) setChats(chatData);
+    },
+    [userId, token]
+  );
 
   const handleUserSelection = async (receiverId: string) => {
     setChats(null);
@@ -99,9 +171,9 @@ function Home() {
   useEffect(() => {
     socket.on("receiveMessage", (newMessage) => {
       if (chats && chats._id === newMessage.conversationId) {
-        setChats(prevChats => ({
+        setChats((prevChats) => ({
           ...prevChats,
-          messages: [...prevChats.messages, newMessage],
+          messages: [...(prevChats?.messages || []), newMessage],
         }));
       }
     });
@@ -117,17 +189,13 @@ function Home() {
     }
   }, [chats]);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('token');
-    sessionStorage.removeItem('currentUserId');
-    setRecents([]); // Clear recents
-    setChats(null); // Clear chats
-    navigate('/login');
-  };
-
   return (
     <div className="w-full h-full flex">
-      <div className={`md:w-[30%] w-full h-full border-r-2 dark:border-gray-500 overflow-y-auto ${currentMessage ? 'hidden md:block' : ''}`}>
+      <div
+        className={`md:w-[30%] w-full h-full border-r-2 dark:border-gray-500 overflow-y-auto ${
+          currentMessage ? "hidden md:block" : ""
+        }`}
+      >
         <h1 className="text-2xl p-2 pl-2">Chats</h1>
         <div className="overflow-y-auto">
           {recents.map((receiver) => (
@@ -145,16 +213,21 @@ function Home() {
               />
               <div className="w-[75%] text-start">
                 <p className="font-bold">{receiver.firstName}</p>
+                {onlineUsers.has(receiver._id) ? <p>Online</p> : <p>Offline</p>}
               </div>
             </button>
           ))}
         </div>
       </div>
 
-      <div className={`relative w-full md:w-[70%] ${currentMessage === "" ? "hidden md:block" : ""}`}>
+      <div
+        className={`relative w-full md:w-[70%] ${
+          currentMessage === "" ? "hidden md:block" : ""
+        }`}
+      >
         {currentMessage && (
-          <button 
-            className="sticky top-4 left-4 p-2 bg-gray-200 rounded-md md:hidden" 
+          <button
+            className="sticky top-4 left-4 p-2 bg-gray-200 rounded-md md:hidden"
             onClick={() => setCurrentMessage("")}
           >
             Back
@@ -164,23 +237,37 @@ function Home() {
           className="h-[calc(100vh-100px)] overflow-y-auto p-4"
           ref={chatContainerRef}
         >
-          {chats && chats.messages.map((msg) => (
-            <div key={msg._id} className={`flex ${msg.sender === userId ? 'justify-end' : 'justify-start'}`}>
+          {chats &&
+            chats.messages.map((msg) => (
               <div
-                className={`p-2 rounded-lg ${msg.sender === userId ? 'bg-blue-500 text-white' : 'bg-gray-200 text-black'}`}
+                key={msg._id}
+                className={`flex ${
+                  msg.sender === userId ? "justify-end" : "justify-start"
+                }`}
               >
-                {msg.message}
+                <div
+                  className={`p-2 rounded-lg ${
+                    msg.sender === userId
+                      ? "bg-blue-500 text-white"
+                      : "bg-gray-200 text-black"
+                  }`}
+                >
+                  {msg.message}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
 
-        <div className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${currentMessage !== "" ? "" : "hidden"}`}>
+        <div
+          className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${
+            currentMessage !== "" ? "" : "hidden"
+          }`}
+        >
           <input
             type="text"
             className="w-full p-4 border border-gray-300 rounded-lg"
             value={myMessage}
-            onChange={e => setMymessage(e.target.value)}
+            onChange={(e) => setMymessage(e.target.value)}
           />
           <button className="ml-2" onClick={sendMessage}>
             <FiSend size={30} />

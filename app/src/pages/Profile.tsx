@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { socket } from "./Home";
 
 interface UserProfile {
   _id: string;
@@ -47,6 +48,7 @@ function Profile() {
 
 
   const handleLogout = () => {
+    socket.emit('logout', userId);
     sessionStorage.removeItem('token');
     sessionStorage.removeItem('currentUserId');
     navigate('/login'); // Redirect to login page
