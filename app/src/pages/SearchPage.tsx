@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, SetStateAction } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,7 +18,25 @@ async function searchUsers(query: string, token: string | null) {
     return [];
   }
 }
+async function startConversation(senderId: string | null, receiverId:string ,token: string | null) {
+  const base_url = `http://localhost:3000/chat/conversation/`;
 
+  try {
+    const response = await axios.post(base_url, {
+      senderId,
+      receiverId
+    }, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.data;
+  } catch (err) {
+    console.error('Error searching users:', err);
+    return [];
+  }
+}
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -26,19 +44,23 @@ export default function SearchPage() {
   const token = sessionStorage.getItem('token');
   const userId = sessionStorage.getItem('currentUserId');
 
-  const handleSearchInput = (event) => {
+  const handleSearchInput = (event: { target: { value: SetStateAction<string>; }; }) => {
     setSearchQuery(event.target.value);
   };
 
-  const handleSearchSubmit = async (event) => {
+  const handleSearchSubmit = async (event: { preventDefault: () => void; }) => {
     event.preventDefault();
     const results = await searchUsers(searchQuery, token);
     setSearchResults(results);
   };
 
-  const handleUserSelection = async (receiverId) => {
+  const handleUserSelection = async (searchedUser: string) => {
     // Start conversation or navigate to chat
-    navigate(`/home?chatWith=${receiverId}`);
+    const results = await startConversation(userId, searchedUser, token);
+    if (results)
+    {
+      navigate(`/home`, {state: {searchedUser}});
+    }
   };
 
   return (

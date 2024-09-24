@@ -53,8 +53,7 @@ function Home(this: any) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const query = new URLSearchParams(location.search);
-  const chatWith = query.get("chatWith");
+  const { searchedUser } = location.state || {};
   const interval = 3000;
 
   const token = sessionStorage.getItem("token") || "";
@@ -95,8 +94,7 @@ function Home(this: any) {
       const response = await axios.get(base_url);
       return response.data; // Assuming response.data returns true/false for online status
     } catch (err) {
-      console.error("Error checking online status:", err);
-      return false; // Return false if there's an error
+      return false; // Return false if there'fs an error
     }
   }
 
@@ -135,13 +133,13 @@ function Home(this: any) {
         await IsOnline(element._id); // Check if each recent user is online initially
       });
 
-      if (chatWith) {
-        const chatData = await getChats(chatWith);
-        if (chatData) setChats(chatData);
+      if (searchedUser) {
+        const chatData = await getChats(searchedUser);
+       setCurrentMessage(searchedUser);
       }
     };
     fetchInitialData();
-  }, [chatWith, token, userId]);
+  }, [searchedUser, token, userId]);
 
   const fetchChatMessages = useCallback(
     async (receiverId: string) => {
@@ -159,51 +157,44 @@ function Home(this: any) {
 
   const sendMessage = () => {
     if (myMessage.trim() === "") return;
-
+  
     const messageObj = {
       sender: userId,
       receiver: currentMessage,
-      message: "",
-      type: "",
-      fileName: "",
-      mimeType: "",
     };
-
+  
     if (file) {
       const reader = new FileReader();
-
+      
       reader.onloadend = () => {
         // Convert the result to base64
-        const base64 =
-          reader.result?.toString().replace(/^data:.*;base64,/, "") || "";
-
+        const base64 = reader.result?.toString().replace(/^data:.*;base64,/, '') || '';
+        
         // Update messageObj with file data
         messageObj.message = base64;
         messageObj.type = "file";
         messageObj.fileName = file.name;
         messageObj.mimeType = file.type;
-
+  
         // Emit the message after the file has been read
-        console.log("here");
-        console.log(messageObj);
         socket.emit("sendMessage", messageObj);
       };
-
+  
       // Read the file as a Data URL
       reader.readAsDataURL(file);
     } else {
       // Handle sending a text message
       messageObj.message = myMessage;
 
-      console.log("here");
-      console.log(messageObj);
+    
       socket.emit("sendMessage", messageObj);
     }
-
+  
     // Reset state after sending
     setMymessage("");
     setFile(null);
   };
+  
 
   const selectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -298,9 +289,13 @@ function Home(this: any) {
                 className={`flex ${
                   msg.sender === userId ? "justify-end" : "justify-start"
                 }`}
+                
               >
                 {msg.type === "file" ? (
-                  <div>{renderImage(msg)}</div>
+                  <div>
+                    {renderImage(msg)}
+                    
+                  </div>
                 ) : (
                   <div
                     className={`p-2 rounded-lg ${
