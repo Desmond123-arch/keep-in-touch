@@ -3,7 +3,6 @@ interface ImageProps {
     base64Data: string;
   }
 const Image: React.FC<ImageProps> = ({ fileName, base64Data }) => {
-    console.log('i was called');
     return (
         <div>
             <img

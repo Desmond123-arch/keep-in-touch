@@ -6,7 +6,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ImAttachment } from "react-icons/im";
 import Image from "../components/Image";
 
-export const socket = io("http://localhost:3000");
+const userId = sessionStorage.getItem("currentUserId") || "";
+
+
+export const socket = io("http://localhost:3000", { query: { userId } });
 
 interface Recents {
   _id: string;
@@ -92,7 +95,7 @@ function Home(this: any) {
     const base_url = `http://localhost:3000/users/IsOnline/${userId}`;
     try {
       const response = await axios.get(base_url);
-      return response.data; // Assuming response.data returns true/false for online status
+      return response.data;
     } catch (err) {
       return false; // Return false if there'fs an error
     }
@@ -292,10 +295,10 @@ function Home(this: any) {
                 }`}
                 
               >
+                {console.log(msg.type)} 
                 {msg.type === "file" ? (
                   <div>
                     {renderImage(msg)}
-                    
                   </div>
                 ) : (
                   <div

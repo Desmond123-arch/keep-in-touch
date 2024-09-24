@@ -1,3 +1,4 @@
+import { text } from "express";
 import mongoose from "mongoose"
 const schema = mongoose.Schema;
 
@@ -22,7 +23,19 @@ const messageSchema = new schema({
     timestamp: {
         type: Date,
         default: Date.now
-    }
+    },
+    type: {
+        type: String,
+        default: text,
+    },
+    fileName: {
+        type: String,
+        default: ''
+    },
+    mimeType: {
+        type: String,
+        default: ''
+    },
 });
 
 export default mongoose.model('Messages', messageSchema);

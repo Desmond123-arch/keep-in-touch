@@ -22,7 +22,8 @@ const userSchema = new schema({
         required: true,
     },
     SocketId: {
-        type: String
+        type: String,
+        default: ''
     }
 })
 export default mongoose.model('Users', userSchema);

@@ -21,7 +21,7 @@ const addUser = async (req, res) => {
     }
     try {
         const temp = await dbClient.User.find({ email: req.body.email });
-        console.log(temp);
+        // console.log(temp);
         if (temp.length === 0) {
             const newUser = new dbClient.User(userDetails);
             await newUser.save();
@@ -32,7 +32,7 @@ const addUser = async (req, res) => {
         }
     }
     catch (error) {
-        console.log(error);
+        // console.log(error);
         res.status(500).send({ error: 'Failed to create user' })
     }
 }
@@ -52,7 +52,7 @@ const loginUser = async (req, res) => {
             res.status(404).send({ error: "User not found" });
         }
     } catch (err) {
-        console.log(err);
+        // console.log(err);
         res.status(500).send({ error: "Login failed" });
     }
 };
@@ -71,14 +71,13 @@ const chatParticipants = async (req, res) => {
 
         res.status(200).send(chatPartners);
     } catch (err) {
-        console.log('Error fetching chat participants:', err);
+        // console.log('Error fetching chat participants:', err);
         res.status(500).send({ error: 'Failed to fetch chat participants' });
     }
 };
 
 const searchUsers = async (req, res) => {
     const searchTerm = req.query.q; 
-    console.log('search was called')
     
     try {
         const users = await dbClient.User.find({
@@ -95,7 +94,7 @@ const searchUsers = async (req, res) => {
 
         res.status(200).send(users);
     } catch (error) {
-        console.log('Error searching users:', error);
+        // console.log('Error searching users:', error);
         res.status(500).send({ error: 'Failed to search users' });
     }
 };
@@ -118,7 +117,25 @@ const UserDetails = async (req, res) => {
         res.status(500).send({ message: 'An error occurred' });
     }
 };
+const IsOnline = async (req, res) => {
+    const userId = req.params.userId;
+    try {
+        // Convert userId to ObjectId
+        const objectId = new mongoose.Types.ObjectId(userId);
+
+        // Find user by _id
+        const user = await dbClient.User.findById(objectId);
+
+        if (user.SocketId.length == 0) {
+            return res.send(false);
+        }
+
+        res.status(200).send(true);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: 'An error occurred' });
+    }
+}
 
 
-
-export default { addUser, loginUser, chatParticipants, searchUsers, UserDetails};
+export default { addUser, loginUser, chatParticipants, searchUsers, UserDetails, IsOnline};
