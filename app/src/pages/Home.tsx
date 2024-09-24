@@ -128,18 +128,19 @@ function Home(this: any) {
     const fetchInitialData = async () => {
       const recentsData = await getRecents();
       if (recentsData) setRecents(recentsData);
-
+  
       recentsData.forEach(async (element: { _id: string }) => {
         await IsOnline(element._id); // Check if each recent user is online initially
       });
-
+  
       if (searchedUser) {
-        const chatData = await getChats(searchedUser);
-       setCurrentMessage(searchedUser);
+        // Fetch chat data for the searched user
+        await handleUserSelection(searchedUser);
       }
     };
     fetchInitialData();
-  }, [searchedUser, token, userId]);
+  }, [token, userId]);
+  
 
   const fetchChatMessages = useCallback(
     async (receiverId: string) => {
@@ -211,10 +212,10 @@ function Home(this: any) {
 
   useEffect(() => {
     const handleReceiveMessage = (message: Message) => {
+      console.log(message);
       setChats((prevChats) => {
         if (prevChats && prevChats._id === message.conversationId) {
           const updatedMessages = [...(prevChats.messages || []), message];
-          console.log("message recieved");
           return { ...prevChats, messages: updatedMessages };
         }
         return prevChats;
