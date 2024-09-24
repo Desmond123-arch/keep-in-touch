@@ -35,7 +35,7 @@ io.on('connection', async (socket) => {
                 });
                 conversation = await newConversation.save();
             }
-            console.log(messageDetails);
+            // console.log(messageDetails);
             // User joins the conversation room
             socket.join(conversation._id.toString());
 
