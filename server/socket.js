@@ -8,8 +8,15 @@ import app from './app.js';
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
 
-io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+io.on('connection', async (socket) => {
+
+    const userId = socket.handshake.query.userId;
+
+    await dbClient.User.findByIdAndUpdate(userId, {
+        $set: { SocketId: socket.id },
+    });
+
+    const user =  await dbClient.User.findById(userId)
 
     socket.on('sendMessage', async (messageDetails) => {
         try {
@@ -20,6 +27,7 @@ io.on('connection', (socket) => {
                 participants: { $all: [sender, receiver] },
             }).populate('messages');
 
+
             // If no conversation exists, create one
             if (!conversation) {
                 const newConversation = new dbClient.Conversation({
@@ -27,7 +35,7 @@ io.on('connection', (socket) => {
                 });
                 conversation = await newConversation.save();
             }
-            console.log(messageDetails);
+            // console.log(messageDetails);
             // User joins the conversation room
             socket.join(conversation._id.toString());
 
@@ -46,13 +54,20 @@ io.on('connection', (socket) => {
             io.to(conversation._id.toString()).emit('receiveMessage', newMessage);
 
         } catch (error) {
-            console.log('Error sending message:', error);
+            // console.log('Error sending message:', error);
             socket.emit('error', { error: 'Failed to send message' });
         }
     });
-
-    socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
+    socket.on('logout', async () => {
+        await dbClient.User.findByIdAndUpdate(userId, {
+            $set: { SocketId: '' },
+        });
+    })
+    socket.on('disconnect', async () => {
+        // console.log('User disconnected:', socket.id);
+        await dbClient.User.findByIdAndUpdate(userId, {
+            $set: { SocketId: '' },
+        });
     });
 });
 

@@ -9,4 +9,5 @@ Usersrouter.post('/auth/login', userController.loginUser);
 Usersrouter.get('/search', userController.searchUsers);
 Usersrouter.get('/:userId', authenticateToken, userController.UserDetails);
 Usersrouter.get('/my_chats/:userId',authenticateToken ,userController.chatParticipants);
+Usersrouter.get('/IsOnline/:userId', userController.IsOnline);
 export default Usersrouter;

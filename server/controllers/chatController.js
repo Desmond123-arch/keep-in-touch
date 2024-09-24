@@ -33,7 +33,7 @@ const sendMessage = async (req, res) => {
         res.status(201).send(newMessage);
     }
     catch (error) {
-        console.log(error);
+        // console.log(error);
         res.status(500).send({ error: 'Failed to send message' });
     }
 };
@@ -50,7 +50,7 @@ const getConversation = async (req, res) => {
             participants: { $all: [user1Id, user2Id] }
         }).populate('messages');
 
-        console.log(conversation);
+        // console.log(conversation);
         if (!conversation) {
             const newConversation = new dbClient.Conversation({
                 participants: [user1Id, user2Id],
@@ -61,7 +61,7 @@ const getConversation = async (req, res) => {
             res.status(200).send(conversation);
         }
     } catch (err) {
-        console.log(err);
+        // console.log(err);
         res.status(500).send({ error: 'Failed to get conversation' });
     }
 };

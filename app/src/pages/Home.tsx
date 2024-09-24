@@ -3,8 +3,13 @@ import { FiSend } from "react-icons/fi";
 import axios from "axios";
 import io from "socket.io-client";
 import { useLocation, useNavigate } from "react-router-dom";
+import { ImAttachment } from "react-icons/im";
+import Image from "../components/Image";
 
-export const socket = io("http://localhost:3000");
+const userId = sessionStorage.getItem("currentUserId") || "";
+
+
+export const socket = io("http://localhost:3000", { query: { userId } });
 
 interface Recents {
   _id: string;
@@ -20,6 +25,9 @@ interface Message {
   receiver: string;
   conversationId: string;
   timestamp: string;
+  mimeType?: string;
+  fileName?: string;
+  type?: string;
 }
 
 interface Participant {
@@ -34,18 +42,21 @@ interface ChatMessage {
   lastUpdated: Date;
 }
 
-function Home() {
+function Home(this: any) {
   const [recents, setRecents] = useState<Recents[]>([]);
   const [currentMessage, setCurrentMessage] = useState<string>("");
   const [myMessage, setMymessage] = useState<string>("");
   const [chats, setChats] = useState<ChatMessage | null>(null);
-  const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(new Map());
+  const [file, setFile] = useState<File | null>(null);
+
+  const [onlineUsers, setOnlineUsers] = useState<Map<string, string>>(
+    new Map()
+  );
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const query = new URLSearchParams(location.search);
-  const chatWith = query.get("chatWith");
+  const { searchedUser } = location.state || {};
   const interval = 3000;
 
   const token = sessionStorage.getItem("token") || "";
@@ -84,10 +95,9 @@ function Home() {
     const base_url = `http://localhost:3000/users/IsOnline/${userId}`;
     try {
       const response = await axios.get(base_url);
-      return response.data;  // Assuming response.data returns true/false for online status
+      return response.data;
     } catch (err) {
-      console.error("Error checking online status:", err);
-      return false;  // Return false if there's an error
+      return false; // Return false if there'fs an error
     }
   }
 
@@ -96,13 +106,13 @@ function Home() {
     recents.forEach(async (recentUser) => {
       const isOnline = await IsOnline(recentUser._id);
       setOnlineUsers((prev) => {
-        const updatedUsers = new Map(prev);  // Clone the previous state
+        const updatedUsers = new Map(prev); // Clone the previous state
         if (isOnline) {
           updatedUsers.set(recentUser._id, "online");
         } else {
           updatedUsers.delete(recentUser._id);
         }
-        return updatedUsers;  // Return the new state
+        return updatedUsers; // Return the new state
       });
     });
   }
@@ -110,29 +120,30 @@ function Home() {
   useEffect(() => {
     const statusInterval = setInterval(() => {
       if (recents.length > 0) {
-        checkStatus();  // Only check status if recents are populated
+        checkStatus(); // Only check status if recents are populated
       }
     }, interval);
 
-    return () => clearInterval(statusInterval);  // Cleanup interval on unmount
+    return () => clearInterval(statusInterval); // Cleanup interval on unmount
   }, [recents]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
       const recentsData = await getRecents();
       if (recentsData) setRecents(recentsData);
-
+  
       recentsData.forEach(async (element: { _id: string }) => {
-        await IsOnline(element._id);  // Check if each recent user is online initially
+        await IsOnline(element._id); // Check if each recent user is online initially
       });
-
-      if (chatWith) {
-        const chatData = await getChats(chatWith);
-        if (chatData) setChats(chatData);
+  
+      if (searchedUser) {
+        // Fetch chat data for the searched user
+        await handleUserSelection(searchedUser);
       }
     };
     fetchInitialData();
-  }, [chatWith, token, userId]);
+  }, [token, userId]);
+  
 
   const fetchChatMessages = useCallback(
     async (receiverId: string) => {
@@ -150,42 +161,80 @@ function Home() {
 
   const sendMessage = () => {
     if (myMessage.trim() === "") return;
-
+  
     const messageObj = {
       sender: userId,
       receiver: currentMessage,
-      message: myMessage,
     };
+  
+    if (file) {
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        // Convert the result to base64
+        const base64 = reader.result?.toString().replace(/^data:.*;base64,/, '') || '';
+        
+        // Update messageObj with file data
+        messageObj.message = base64;
+        messageObj.type = "file";
+        messageObj.fileName = file.name;
+        messageObj.mimeType = file.type;
+  
+        // Emit the message after the file has been read
+        socket.emit("sendMessage", messageObj);
+      };
+  
+      // Read the file as a Data URL
+      reader.readAsDataURL(file);
+    } else {
+      // Handle sending a text message
+      messageObj.message = myMessage;
 
-    socket.emit("sendMessage", messageObj);
+    
+      socket.emit("sendMessage", messageObj);
+    }
+  
+    // Reset state after sending
     setMymessage("");
+    setFile(null);
+  };
+  
+
+  const selectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+      setMymessage(e.target.files[0].name); // Optional, remove if not needed
+    }
+  };
+
+  const renderImage = (msg: Message) => {
+    return (
+      <Image key={msg._id} fileName={msg.fileName} base64Data={msg.message} />
+    );
   };
 
   useEffect(() => {
-    if (chatWith) {
-      fetchChatMessages(chatWith);
-      setCurrentMessage(chatWith);
-    }
-  }, [chatWith, fetchChatMessages]);
-
-  useEffect(() => {
-    socket.on("receiveMessage", (newMessage) => {
-      if (chats && chats._id === newMessage.conversationId) {
-        setChats((prevChats) => ({
-          ...prevChats,
-          messages: [...(prevChats?.messages || []), newMessage],
-        }));
-      }
-    });
+    const handleReceiveMessage = (message: Message) => {
+      console.log(message);
+      setChats((prevChats) => {
+        if (prevChats && prevChats._id === message.conversationId) {
+          const updatedMessages = [...(prevChats.messages || []), message];
+          return { ...prevChats, messages: updatedMessages };
+        }
+        return prevChats;
+      });
+    };
+    socket.on("receiveMessage", handleReceiveMessage);
 
     return () => {
-      socket.off("receiveMessage");
+      socket.off("receiveMessage", handleReceiveMessage);
     };
-  }, [chats]);
+  }, [socket, chats]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   }, [chats]);
 
@@ -234,7 +283,7 @@ function Home() {
           </button>
         )}
         <div
-          className="h-[calc(100vh-100px)] overflow-y-auto p-4"
+          className="h-[calc(100vh-100px)] overflow-y-auto p-4 py-10 pb-[5rem] md:pb-2"
           ref={chatContainerRef}
         >
           {chats &&
@@ -244,34 +293,55 @@ function Home() {
                 className={`flex ${
                   msg.sender === userId ? "justify-end" : "justify-start"
                 }`}
+                
               >
-                <div
-                  className={`p-2 rounded-lg ${
-                    msg.sender === userId
-                      ? "bg-blue-500 text-white"
-                      : "bg-gray-200 text-black"
-                  }`}
-                >
-                  {msg.message}
-                </div>
+                {console.log(msg.type)} 
+                {msg.type === "file" ? (
+                  <div>
+                    {renderImage(msg)}
+                  </div>
+                ) : (
+                  <div
+                    className={`p-2 rounded-lg ${
+                      msg.sender === userId
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200 text-black"
+                    }`}
+                  >
+                    {msg.message}
+                  </div>
+                )}
               </div>
             ))}
         </div>
 
         <div
-          className={`absolute bottom-0 left-0 right-0 w-full p-2 flex items-center ${
+          className={`mt-5 md:mb-2 rounded-md bg-gray-950 absolute bottom-0 left-0 right-0  w-full flex items-center  ${
             currentMessage !== "" ? "" : "hidden"
           }`}
         >
           <input
             type="text"
-            className="w-full p-4 border border-gray-300 rounded-lg"
+            className="w-full p-4 rounded-lg bg-gray-950 "
             value={myMessage}
             onChange={(e) => setMymessage(e.target.value)}
           />
-          <button className="ml-2" onClick={sendMessage}>
-            <FiSend size={30} />
-          </button>
+          <div className="flex mr-4 w-[40%] md:w-[15%]">
+            <div className="relative w-1/2">
+              <ImAttachment size={30} className="absolute left-2" />
+              <input
+                accept=".jpg, .jpeg .png, .svg, .webp"
+                className="border w-full opacity-0"
+                type="file"
+                name="bgfile"
+                id="bgfile"
+                onChange={selectFile}
+              />
+            </div>
+            <button className="w-[40%]" onClick={sendMessage}>
+              <FiSend size={30} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
