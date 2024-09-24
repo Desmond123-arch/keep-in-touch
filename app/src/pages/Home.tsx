@@ -27,7 +27,6 @@ interface Message {
   type?: string;
 }
 
-
 interface Participant {
   _id: string;
   firstName: string;
@@ -130,13 +129,12 @@ function Home(this: any) {
   useEffect(() => {
     const fetchInitialData = async () => {
       const recentsData = await getRecents();
-      if (recentsData) {
-        setRecents(recentsData);
-        console.log("Recents Data:", recentsData); // Debugging line
-      }
-  
+      if (recentsData) setRecents(recentsData);
 
-  
+      recentsData.forEach(async (element: { _id: string }) => {
+        await IsOnline(element._id); // Check if each recent user is online initially
+      });
+
       if (chatWith) {
         const chatData = await getChats(chatWith);
         if (chatData) setChats(chatData);
@@ -144,7 +142,6 @@ function Home(this: any) {
     };
     fetchInitialData();
   }, [chatWith, token, userId]);
-  
 
   const fetchChatMessages = useCallback(
     async (receiverId: string) => {
@@ -162,51 +159,51 @@ function Home(this: any) {
 
   const sendMessage = () => {
     if (myMessage.trim() === "") return;
-  
+
     const messageObj = {
       sender: userId,
       receiver: currentMessage,
-      message:"",
+      message: "",
       type: "",
       fileName: "",
       mimeType: "",
     };
-  
+
     if (file) {
       const reader = new FileReader();
-      
+
       reader.onloadend = () => {
         // Convert the result to base64
-        const base64 = reader.result?.toString().replace(/^data:.*;base64,/, '') || '';
-        
+        const base64 =
+          reader.result?.toString().replace(/^data:.*;base64,/, "") || "";
+
         // Update messageObj with file data
         messageObj.message = base64;
         messageObj.type = "file";
         messageObj.fileName = file.name;
         messageObj.mimeType = file.type;
-  
+
         // Emit the message after the file has been read
-        console.log('here');
+        console.log("here");
         console.log(messageObj);
         socket.emit("sendMessage", messageObj);
       };
-  
+
       // Read the file as a Data URL
       reader.readAsDataURL(file);
     } else {
       // Handle sending a text message
       messageObj.message = myMessage;
-      
-      console.log('here');
+
+      console.log("here");
       console.log(messageObj);
       socket.emit("sendMessage", messageObj);
     }
-  
+
     // Reset state after sending
     setMymessage("");
     setFile(null);
   };
-  
 
   const selectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -220,30 +217,24 @@ function Home(this: any) {
       <Image key={msg._id} fileName={msg.fileName} base64Data={msg.message} />
     );
   };
-  
 
   useEffect(() => {
     const handleReceiveMessage = (message: Message) => {
-      
       setChats((prevChats) => {
         if (prevChats && prevChats._id === message.conversationId) {
           const updatedMessages = [...(prevChats.messages || []), message];
-          console.log('message recieved');
+          console.log("message recieved");
           return { ...prevChats, messages: updatedMessages };
         }
         return prevChats;
       });
     };
     socket.on("receiveMessage", handleReceiveMessage);
-  
+
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
     };
   }, [socket, chats]);
-  
-
-
-
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -308,12 +299,9 @@ function Home(this: any) {
                   msg.sender === userId ? "justify-end" : "justify-start"
                 }`}
               >
-                {
-                  msg.type === "file"? (
-                    <div>
-                     { renderImage(msg)}
-                    </div>
-                  ): (
+                {msg.type === "file" ? (
+                  <div>{renderImage(msg)}</div>
+                ) : (
                   <div
                     className={`p-2 rounded-lg ${
                       msg.sender === userId
@@ -323,8 +311,7 @@ function Home(this: any) {
                   >
                     {msg.message}
                   </div>
-                  )
-                }
+                )}
               </div>
             ))}
         </div>
