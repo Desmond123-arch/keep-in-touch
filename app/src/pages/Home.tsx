@@ -295,20 +295,22 @@ function Home(this: any) {
                 }`}
                 
               >
-                {console.log(msg.type)} 
                 {msg.type === "file" ? (
                   <div>
                     {renderImage(msg)}
                   </div>
                 ) : (
+                  
                   <div
                     className={`p-2 rounded-lg ${
                       msg.sender === userId
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-200 text-black"
+                        ? " text-white chat-end "
+                        : "text-black chat-start"
                     }`}
                   >
-                    {msg.message}
+                   <div className="chat-bubble">
+                   {msg.message}
+                   </div>
                   </div>
                 )}
               </div>
